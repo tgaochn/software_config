@@ -1,0 +1,208 @@
+.markdown-here-wrapper {
+  font-size: 16px;
+  line-height: 1.8em;
+  letter-spacing: 0.1em;
+}
+
+code {
+  white-space: pre-wrap;
+  border-radius: 2px;
+  display: inline;
+}
+
+pre {
+  font-size: 15px;
+  line-height: 1.4em;
+  display: block !important;
+}
+
+pre code {
+  white-space: pre;
+  overflow: auto;
+  border-radius: 3px;
+  padding: 1px 1px;
+  display: block !important;
+}
+
+
+strong, b{
+  color: #BF360C;
+}
+
+em, i {
+  color: #009688;
+}
+
+table, pre, dl, blockquote, q, ul, ol {
+  margin: 10px 5px;
+}
+
+ul, ol {
+  padding-left: 15px;
+}
+
+li {
+  margin: 10px;
+}
+
+li p {
+  margin: 10px 0 !important;
+}
+
+ul ul, ul ol, ol ul, ol ol {
+  margin: 0;
+  padding-left: 10px;
+}
+
+ul {
+  list-style-type: circle;
+}
+
+dl {
+  padding: 0;
+}
+
+dl dt {
+  font-size: 1em;
+  font-weight: bold;
+  font-style: italic;
+}
+
+dl dd {
+  margin: 0 0 10px;
+  padding: 0 10px;
+}
+
+blockquote, q {
+  border-left: 2px solid #009688;
+  padding: 0 10px;
+  color: #777;
+  quotes: none;
+  margin-left: 1em;
+}
+
+blockquote::before, blockquote::after, q::before, q::after {
+  content: none;
+}
+
+table {
+  padding: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 1em;
+  font: inherit;
+  border: 0;
+  margin: 0 auto;
+}
+
+tbody {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+table tr {
+  border: 0;
+  border-top: 1px solid #CCC;
+  background-color: white;
+  margin: 0;
+  padding: 0;
+}
+
+table tr:nth-child(2n) {
+  background-color: #F8F8F8;
+}
+
+table tr th, table tr td {
+  font-size: 16px;
+  border: 1px solid #CCC;
+  margin: 0;
+  padding: 5px 10px;
+}
+
+table tr th {
+  font-weight: bold;
+  color: #eee;
+  border: 1px solid #009688;
+  background-color: #009688;
+}
+
+ /* !! ==================== */
+ /* !! my modification */
+ /* !! ==================== */
+
+
+/* ! todo list style */
+.markdown-body li.wiz-md-todo-list-item {
+    list-style: none;
+}
+.markdown-body li.wiz-md-todo-list-item input.wiz-md-todo-checkbox {
+    margin: 0px 5px 0px -1rem;
+    vertical-align:middle;
+}
+
+/* ! title style */
+h1, h2, h3, h4, h5, h6 {
+  padding: 0;
+  font-style: bold !important;
+}
+
+h1 {
+  color: #009688 !important;
+  background-color: rgba(255, 127, 80, 0.3);
+
+  font-size: 24px !important;
+  text-align: center !important;
+  padding: 0.2em 0.2em !important; /* space between title and splitter */
+}
+
+h2 {
+  background-color: rgba(255, 127, 80, 0.1);
+  color: #009688 !important;
+
+  font-size: 20px !important;
+  border-bottom: 1px double #009688; /* splitter */
+}
+
+h3 {
+  color: #009688 !important;
+  font-size: 18px;
+  border-bottom: 1px solid ;
+}
+
+h4 {
+  color: #009688 !important;
+  font-size: 16px;
+  border-bottom: 1px dashed #009688;
+}
+
+/* splitter */
+hr {
+  box-sizing: content-box;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid #dfe2e5;
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #e1e4e8;
+}
+
+hr::before {
+  display: table;
+  content: "";
+}
+
+hr::after {
+  display: table;
+  clear: both;
+  content: "";
+}
+
+pre, code {
+  /* color: #009688;     */
+  font-size: 14px;
+  font-family: 'Fira Code', Roboto, 'Courier New', Consolas, Inconsolata, Courier, monospace;
+  margin: auto 5px;
+  background-color: #f6f8fa;
+}
