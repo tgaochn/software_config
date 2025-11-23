@@ -51,11 +51,11 @@ fi
 
 # --- 3. 配置 VS Code 设置 ---
 echo -e "${CYAN}[2/8] Configuring VS Code settings...${NC}"
-if [ ! -d "$VSCODE_DIR" ]; then
-    mkdir -p "$VSCODE_DIR"
+if [ ! -d ".vscode" ]; then
+    mkdir -p ".vscode"
 fi
 
-if [ ! -f "$VSCODE_SETTINGS" ]; then
+if [ ! -f ".vscode/settings.json" ]; then
     cat > "$VSCODE_SETTINGS" << 'EOF'
 {
     "files.exclude": {
@@ -83,14 +83,14 @@ if [ ! -f "$VSCODE_SETTINGS" ]; then
     }
 }
 EOF
-    echo -e "${GREEN} -> Created $VSCODE_SETTINGS${NC}"
+    echo -e "${GREEN} -> Created .vscode/settings.json${NC}"
 else
-    echo -e "${YELLOW} -> $VSCODE_SETTINGS already exists. Skipping.${NC}"
+    echo -e "${YELLOW} -> .vscode/settings.json already exists. Skipping.${NC}"
 fi
 
 # --- 4. 配置 .gitignore ---
 echo -e "${CYAN}[3/8] Configuring .gitignore...${NC}"
-if [ ! -f "$GITIGNORE_FILE" ]; then
+if [ ! -f ".gitignore" ]; then
     cat > "$GITIGNORE_FILE" << 'EOF'
 # ==============================================================================
 # Git Ignore Configuration
@@ -133,9 +133,9 @@ logs/
 secrets.json
 credentials.json
 EOF
-    echo -e "${GREEN} -> Created $GITIGNORE_FILE${NC}"
+    echo -e "${GREEN} -> Created .gitignore${NC}"
 else
-    echo -e "${YELLOW} -> $GITIGNORE_FILE already exists. Skipping.${NC}"
+    echo -e "${YELLOW} -> .gitignore already exists. Skipping.${NC}"
 fi
 
 # --- 5. 安装依赖 ---
@@ -145,24 +145,24 @@ if [ $? -ne 0 ]; then exit 1; fi
 
 # --- 6. 创建配置文件 ---
 echo -e "${CYAN}[5/8] Configuring pre-commit...${NC}"
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "$CONFIG_CONTENT" > "$CONFIG_FILE"
-    echo -e "${GREEN} -> Created $CONFIG_FILE${NC}"
+if [ ! -f ".pre-commit-config.yaml" ]; then
+    echo "$CONFIG_CONTENT" > ".pre-commit-config.yaml"
+    echo -e "${GREEN} -> Created .pre-commit-config.yaml${NC}"
 else
-    echo -e "${YELLOW} -> $CONFIG_FILE already exists. Skipping.${NC}"
+    echo -e "${YELLOW} -> .pre-commit-config.yaml already exists. Skipping.${NC}"
 fi
 
 # --- 7. 生成基线文件 ---
 echo -e "${CYAN}[6/8] Setting up baseline...${NC}"
-if [ ! -f "$BASELINE_FILE" ]; then
+if [ ! -f ".secrets.baseline" ]; then
     # Fix encoding issue: Ensure UTF-8 encoding
     export LC_ALL=C.UTF-8
     export LANG=C.UTF-8
-    python -m detect_secrets scan > "$BASELINE_FILE"
-    git add "$BASELINE_FILE"
-    echo -e "${GREEN} -> Generated $BASELINE_FILE (UTF-8)${NC}"
+    python -m detect_secrets scan > ".secrets.baseline"
+    git add ".secrets.baseline"
+    echo -e "${GREEN} -> Generated .secrets.baseline (UTF-8)${NC}"
 else
-    echo -e "${YELLOW} -> $BASELINE_FILE already exists. Skipping.${NC}"
+    echo -e "${YELLOW} -> .secrets.baseline already exists. Skipping.${NC}"
 fi
 
 # --- 8. 安装 Hooks ---
@@ -177,26 +177,26 @@ fi
 echo -e "\n${CYAN}[8/8] VERIFYING SECURITY SHIELD...${NC}"
 
 # 7.1 准备测试环境
-if [ -d "$TEST_DIR" ]; then rm -rf "$TEST_DIR"; fi
-mkdir -p "$TEST_DIR"
+if [ -d ".tmp_security_check" ]; then rm -rf ".tmp_security_check"; fi
+mkdir -p ".tmp_security_check"
 
 # 7.2 创建文件
 # 正常文件
-echo "print('This is a clean file')" > "$TEST_DIR/clean.py"
+echo "print('This is a clean file')" > ".tmp_security_check/clean.py"
 # 脏文件 (包含 AWS Key 示例)
-echo "aws_key = 'AKIAIMNOKEYFORTESTING'" > "$TEST_DIR/dirty.py" # pragma: allowlist secret # gitleaks:allow
+echo "aws_key = 'AKIAIMNOKEYFORTESTING'" > ".tmp_security_check/dirty.py" # pragma: allowlist secret # gitleaks:allow
 
 echo -e "${GRAY} -> Created temporary test files (Clean & Dirty).${NC}"
 
 # 7.3 加入暂存区
-git add "$TEST_DIR"
+git add ".tmp_security_check"
 
 # 7.4 运行 Pre-commit
 echo -e "${GRAY} -> Running pre-commit check on test files...${NC}"
 echo -e "${GRAY}---------------------------------------------------${NC}"
 
 # 运行检查
-python -m pre_commit run --files "$TEST_DIR/clean.py" "$TEST_DIR/dirty.py"
+python -m pre_commit run --files ".tmp_security_check/clean.py" ".tmp_security_check/dirty.py"
 
 # 获取退出代码
 CHECK_RESULT=$?
@@ -214,7 +214,43 @@ fi
 
 # 7.6 清理现场
 echo -e "\n${GRAY}[Cleanup] Cleaning up temporary test files...${NC}"
-git reset "$TEST_DIR" &> /dev/null
-rm -rf "$TEST_DIR"
+git reset ".tmp_security_check" &> /dev/null
+rm -rf ".tmp_security_check"
 
-echo -e "${CYAN}Setup and Verification Complete.${NC}"
+echo -e "\n${CYAN}========================================${NC}"
+echo -e "${GREEN}Setup and Verification Complete!${NC}"
+echo -e "${CYAN}========================================${NC}"
+
+# --- 10. [可选] 扫描当前项目 ---
+echo -e "\n${YELLOW}[OPTIONAL] Do you want to scan all files in current project?${NC}"
+echo -e "${GRAY}This will check all existing files for secrets (may take some time).${NC}"
+echo -e "${GRAY}Press [Y/y] to scan, or any other key to skip...${NC}"
+
+read -n 1 -r RESPONSE
+echo
+
+if [[ $RESPONSE =~ ^[Yy]$ ]]; then
+    echo -e "\n${CYAN}[Scanning] Running pre-commit on all files...${NC}"
+    echo -e "${GRAY}---------------------------------------------------${NC}"
+    
+    python -m pre_commit run --all-files
+    
+    SCAN_RESULT=$?
+    
+    echo -e "${GRAY}---------------------------------------------------${NC}"
+    
+    if [ $SCAN_RESULT -eq 0 ]; then
+        echo -e "\n${GREEN}[CLEAN] All files passed security checks!${NC}"
+    else
+        echo -e "\n${RED}[WARNING] Some files failed security checks.${NC}"
+        echo -e "${YELLOW}Please review the output above and fix any issues.${NC}"
+        echo -e "${YELLOW}You can run 'pre-commit run --all-files' anytime to re-check.${NC}"
+    fi
+else
+    echo -e "\n${YELLOW}Skipped project scan. You can run it manually later:${NC}"
+    echo -e "${GRAY}  pre-commit run --all-files${NC}"
+fi
+
+echo -e "\n${CYAN}========================================${NC}"
+echo -e "${GREEN}All Done! Happy Coding!${NC}"
+echo -e "${CYAN}========================================${NC}"

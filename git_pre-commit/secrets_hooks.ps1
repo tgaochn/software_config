@@ -16,7 +16,7 @@ $ConfigFile = ".pre-commit-config.yaml"
 $BaselineFile = ".secrets.baseline"
 $TestDir = ".tmp_security_check" # 临时测试目录名
 $VSCodeDir = ".vscode"
-$VSCodeSettings = "$VSCodeDir/settings.json"
+$VSCodeSettings = ".vscode/settings.json"
 $GitignoreFile = ".gitignore"
 
 $ConfigContent = @"
@@ -48,11 +48,11 @@ if (-not (Test-Path .git)) {
 
 # --- 3. 配置 VS Code 设置 ---
 Write-Host "[2/8] Configuring VS Code settings..." -ForegroundColor Cyan
-if (-not (Test-Path $VSCodeDir)) {
-    New-Item -ItemType Directory -Force $VSCodeDir | Out-Null
+if (-not (Test-Path ".vscode")) {
+    New-Item -ItemType Directory -Force ".vscode" | Out-Null
 }
 
-if (-not (Test-Path $VSCodeSettings)) {
+if (-not (Test-Path ".vscode/settings.json")) {
     $VSCodeContent = @'
 {
     "files.exclude": {
@@ -75,20 +75,20 @@ if (-not (Test-Path $VSCodeSettings)) {
         ".obsidian": true,
         ".pre-commit-config.yaml": true,
         ".secrets.baseline": true,
-        ".vscode": false,
+        ".vscode": true,
         ".cursorignore": true
     }
 }
 '@
-    Set-Content -Path $VSCodeSettings -Value $VSCodeContent -Encoding UTF8
-    Write-Host " -> Created $VSCodeSettings" -ForegroundColor Green
+    Set-Content -Path ".vscode/settings.json" -Value $VSCodeContent -Encoding UTF8
+    Write-Host " -> Created .vscode/settings.json" -ForegroundColor Green
 } else {
-    Write-Host " -> $VSCodeSettings already exists. Skipping." -ForegroundColor Yellow
+    Write-Host " -> .vscode/settings.json already exists. Skipping." -ForegroundColor Yellow
 }
 
 # --- 4. 配置 .gitignore ---
 Write-Host "[3/8] Configuring .gitignore..." -ForegroundColor Cyan
-if (-not (Test-Path $GitignoreFile)) {
+if (-not (Test-Path ".gitignore")) {
     $GitignoreContent = @'
 # Windows/macOS/Linux
 .DS_Store
@@ -127,10 +127,10 @@ logs/
 secrets.json
 credentials.json
 '@
-    Set-Content -Path $GitignoreFile -Value $GitignoreContent -Encoding UTF8
-    Write-Host " -> Created $GitignoreFile" -ForegroundColor Green
+    Set-Content -Path ".gitignore" -Value $GitignoreContent -Encoding UTF8
+    Write-Host " -> Created .gitignore" -ForegroundColor Green
 } else {
-    Write-Host " -> $GitignoreFile already exists. Skipping." -ForegroundColor Yellow
+    Write-Host " -> .gitignore already exists. Skipping." -ForegroundColor Yellow
 }
 
 # --- 5. 安装依赖 ---
@@ -140,25 +140,25 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # --- 6. 创建配置文件 ---
 Write-Host "[5/8] Configuring pre-commit..." -ForegroundColor Cyan
-if (-not (Test-Path $ConfigFile)) {
-    Set-Content -Path $ConfigFile -Value $ConfigContent
-    Write-Host " -> Created $ConfigFile" -ForegroundColor Green
+if (-not (Test-Path ".pre-commit-config.yaml")) {
+    Set-Content -Path ".pre-commit-config.yaml" -Value $ConfigContent
+    Write-Host " -> Created .pre-commit-config.yaml" -ForegroundColor Green
 } else {
-    Write-Host " -> $ConfigFile already exists. Skipping." -ForegroundColor Yellow
+    Write-Host " -> .pre-commit-config.yaml already exists. Skipping." -ForegroundColor Yellow
 }
 
 # --- 7. 生成基线文件 ---
 Write-Host "[6/8] Setting up baseline..." -ForegroundColor Cyan
-if (-not (Test-Path $BaselineFile)) {
+if (-not (Test-Path ".secrets.baseline")) {
     # Fix encoding issue: Force UTF-8 output without BOM
     $PrevEncoding = [Console]::OutputEncoding
     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-    python -m detect_secrets scan | Out-File -FilePath $BaselineFile -Encoding utf8NoBOM
+    python -m detect_secrets scan | Out-File -FilePath ".secrets.baseline" -Encoding utf8NoBOM
     [Console]::OutputEncoding = $PrevEncoding
-    git add $BaselineFile
-    Write-Host " -> Generated $BaselineFile (UTF-8)" -ForegroundColor Green
+    git add ".secrets.baseline"
+    Write-Host " -> Generated .secrets.baseline (UTF-8)" -ForegroundColor Green
 } else {
-    Write-Host " -> $BaselineFile already exists. Skipping." -ForegroundColor Yellow
+    Write-Host " -> .secrets.baseline already exists. Skipping." -ForegroundColor Yellow
 }
 
 # --- 8. 安装 Hooks ---
@@ -170,19 +170,19 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Failed to install hooks"; exit 1 }
 Write-Host "`n[8/8] VERIFYING SECURITY SHIELD..." -BackgroundColor DarkBlue -ForegroundColor White
 
 # 7.1 准备测试环境
-if (Test-Path $TestDir) { Remove-Item $TestDir -Recurse -Force }
-New-Item -ItemType Directory -Force $TestDir | Out-Null
+if (Test-Path ".tmp_security_check") { Remove-Item ".tmp_security_check" -Recurse -Force }
+New-Item -ItemType Directory -Force ".tmp_security_check" | Out-Null
 
 # 7.2 创建文件
 # 正常文件
-Set-Content -Path "$TestDir/clean.py" -Value "print('This is a clean file')"
+Set-Content -Path ".tmp_security_check/clean.py" -Value "print('This is a clean file')"
 # 脏文件 (包含 AWS Key 示例)
-Set-Content -Path "$TestDir/dirty.py" -Value "aws_key = 'AKIAIMNOKEYFORTESTING'" # pragma: allowlist secret # gitleaks:allow
+Set-Content -Path ".tmp_security_check/dirty.py" -Value "aws_key = 'AKIAIMNOKEYFORTESTING'" # pragma: allowlist secret # gitleaks:allow
 
 Write-Host " -> Created temporary test files (Clean & Dirty)." -ForegroundColor Gray
 
 # 7.3 加入暂存区 (Pre-commit 需要)
-git add $TestDir
+git add ".tmp_security_check"
 
 # 7.4 运行 Pre-commit
 Write-Host " -> Running pre-commit check on test files..." -ForegroundColor Gray
@@ -190,7 +190,7 @@ Write-Host "---------------------------------------------------" -ForegroundColo
 
 # 运行检查，同时捕获退出代码
 # 注意：我们期望它失败（返回非0），因为它应该发现 dirty.py
-python -m pre_commit run --files "$TestDir/clean.py" "$TestDir/dirty.py"
+python -m pre_commit run --files ".tmp_security_check/clean.py" ".tmp_security_check/dirty.py"
 
 $CheckResult = $LASTEXITCODE
 
@@ -209,7 +209,42 @@ if ($CheckResult -ne 0) {
 
 # 7.6 清理现场
 Write-Host "`n[Cleanup] Cleaning up temporary test files..." -ForegroundColor DarkGray
-git reset $TestDir | Out-Null
-Remove-Item $TestDir -Recurse -Force
+git reset ".tmp_security_check" | Out-Null
+Remove-Item ".tmp_security_check" -Recurse -Force
 
-Write-Host "Setup and Verification Complete." -ForegroundColor Cyan
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "Setup and Verification Complete!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+
+# --- 10. [可选] 扫描当前项目 ---
+Write-Host "`n[OPTIONAL] Do you want to scan all files in current project?" -ForegroundColor Yellow
+Write-Host "This will check all existing files for secrets (may take some time)." -ForegroundColor Gray
+Write-Host "Press [Y] to scan, or any other key to skip..." -ForegroundColor Gray
+
+$Response = Read-Host
+
+if ($Response -eq 'Y' -or $Response -eq 'y') {
+    Write-Host "`n[Scanning] Running pre-commit on all files..." -ForegroundColor Cyan
+    Write-Host "---------------------------------------------------" -ForegroundColor DarkGray
+    
+    python -m pre_commit run --all-files
+    
+    $ScanResult = $LASTEXITCODE
+    
+    Write-Host "---------------------------------------------------" -ForegroundColor DarkGray
+    
+    if ($ScanResult -eq 0) {
+        Write-Host "`n[CLEAN] All files passed security checks!" -ForegroundColor Green
+    } else {
+        Write-Host "`n[WARNING] Some files failed security checks." -ForegroundColor Red
+        Write-Host "Please review the output above and fix any issues." -ForegroundColor Yellow
+        Write-Host "You can run 'pre-commit run --all-files' anytime to re-check." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "`nSkipped project scan. You can run it manually later:" -ForegroundColor Yellow
+    Write-Host "  pre-commit run --all-files" -ForegroundColor Gray
+}
+
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "All Done! Happy Coding!" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
