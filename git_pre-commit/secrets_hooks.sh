@@ -17,6 +17,9 @@ NC='\033[0m' # No Color
 CONFIG_FILE=".pre-commit-config.yaml"
 BASELINE_FILE=".secrets.baseline"
 TEST_DIR=".tmp_security_check"
+VSCODE_DIR=".vscode"
+VSCODE_SETTINGS="$VSCODE_DIR/settings.json"
+GITIGNORE_FILE=".gitignore"
 
 # 使用 heredoc 生成 YAML 内容
 read -r -d '' CONFIG_CONTENT << EOM
@@ -33,7 +36,7 @@ repos:
         exclude: package-lock.json|yarn.lock
 EOM
 
-echo -e "${CYAN}\n[1/6] Checking environment...${NC}"
+echo -e "${CYAN}\n[1/8] Checking environment...${NC}"
 
 # --- 2. 检查环境 ---
 if ! command -v python &> /dev/null; then
@@ -46,13 +49,102 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
-# --- 3. 安装依赖 ---
-echo -e "${CYAN}[2/6] Installing/Updating dependencies...${NC}"
+# --- 3. 配置 VS Code 设置 ---
+echo -e "${CYAN}[2/8] Configuring VS Code settings...${NC}"
+if [ ! -d "$VSCODE_DIR" ]; then
+    mkdir -p "$VSCODE_DIR"
+fi
+
+if [ ! -f "$VSCODE_SETTINGS" ]; then
+    cat > "$VSCODE_SETTINGS" << 'EOF'
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/__init__.py": true,
+        "**/__pycache__": true,
+        "**/.classpath": true,
+        "**/.factorypath": true,
+        "**/.project": true,
+        "**/.settings": true,
+        "**/*.pyc": true,
+        "**/node_modules": true,
+        "**/CVS": true,
+        "_media-sync_resources": true,
+        "_pasted_img": true,
+        ".obsidian": true,
+        ".pre-commit-config.yaml": true,
+        ".secrets.baseline": true,
+        ".vscode": false,
+        ".cursorignore": true
+    }
+}
+EOF
+    echo -e "${GREEN} -> Created $VSCODE_SETTINGS${NC}"
+else
+    echo -e "${YELLOW} -> $VSCODE_SETTINGS already exists. Skipping.${NC}"
+fi
+
+# --- 4. 配置 .gitignore ---
+echo -e "${CYAN}[3/8] Configuring .gitignore...${NC}"
+if [ ! -f "$GITIGNORE_FILE" ]; then
+    cat > "$GITIGNORE_FILE" << 'EOF'
+# ==============================================================================
+# Git Ignore Configuration
+# ==============================================================================
+
+# Windows/macOS/Linux
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.directory
+.Trash-*
+
+# IDE and Editor settings
+.vscode/
+.idea/
+.settings/
+*.swp
+*.swo
+.project
+.classpath
+.factorypath
+
+# Obsidian
+.obsidian/
+
+# Log/Temporary files
+tempfile/
+logs/
+*.log.*
+*.tmp
+*.bak
+
+# Executable files
+*.exe
+
+# Sensitive information
+.env
+.env.*
+secrets.json
+credentials.json
+EOF
+    echo -e "${GREEN} -> Created $GITIGNORE_FILE${NC}"
+else
+    echo -e "${YELLOW} -> $GITIGNORE_FILE already exists. Skipping.${NC}"
+fi
+
+# --- 5. 安装依赖 ---
+echo -e "${CYAN}[4/8] Installing/Updating dependencies...${NC}"
 python -m pip install pre-commit detect-secrets --quiet
 if [ $? -ne 0 ]; then exit 1; fi
 
-# --- 4. 创建配置文件 ---
-echo -e "${CYAN}[3/6] Configuring pre-commit...${NC}"
+# --- 6. 创建配置文件 ---
+echo -e "${CYAN}[5/8] Configuring pre-commit...${NC}"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "$CONFIG_CONTENT" > "$CONFIG_FILE"
     echo -e "${GREEN} -> Created $CONFIG_FILE${NC}"
@@ -60,26 +152,29 @@ else
     echo -e "${YELLOW} -> $CONFIG_FILE already exists. Skipping.${NC}"
 fi
 
-# --- 5. 生成基线文件 ---
-echo -e "${CYAN}[4/6] Setting up baseline...${NC}"
+# --- 7. 生成基线文件 ---
+echo -e "${CYAN}[6/8] Setting up baseline...${NC}"
 if [ ! -f "$BASELINE_FILE" ]; then
+    # Fix encoding issue: Ensure UTF-8 encoding
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
     python -m detect_secrets scan > "$BASELINE_FILE"
     git add "$BASELINE_FILE"
-    echo -e "${GREEN} -> Generated $BASELINE_FILE${NC}"
+    echo -e "${GREEN} -> Generated $BASELINE_FILE (UTF-8)${NC}"
 else
     echo -e "${YELLOW} -> $BASELINE_FILE already exists. Skipping.${NC}"
 fi
 
-# --- 6. 安装 Hooks ---
-echo -e "${CYAN}[5/6] Installing Git Hooks...${NC}"
+# --- 8. 安装 Hooks ---
+echo -e "${CYAN}[7/8] Installing Git Hooks...${NC}"
 python -m pre_commit install
 if [ $? -ne 0 ]; then 
     echo -e "${RED}Failed to install hooks${NC}"
     exit 1
 fi
 
-# --- 7. [关键] 验证测试模块 ---
-echo -e "\n${CYAN}[6/6] VERIFYING SECURITY SHIELD...${NC}"
+# --- 9. [关键] 验证测试模块 ---
+echo -e "\n${CYAN}[8/8] VERIFYING SECURITY SHIELD...${NC}"
 
 # 7.1 准备测试环境
 if [ -d "$TEST_DIR" ]; then rm -rf "$TEST_DIR"; fi
